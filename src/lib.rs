@@ -61,7 +61,7 @@ impl Joystick {
     }
 
     fn to_tag(&self) -> Vec<u8> {
-        let mut tag: Vec<u8> = vec![0; 4];
+        let mut tag: Vec<u8> = Vec::new();
 
         tag.push(self.axes.len() as u8);
         for axis in &self.axes {
@@ -96,6 +96,7 @@ impl Joystick {
     }
 }
 
+#[derive(Copy, Clone)]
 enum RobotMode {
     Teleop = 0,
     Test = 1,
@@ -141,6 +142,7 @@ struct DriverStation {
     alliance: Alliance,
     game_data: String,
     competition: String,
+	sequence_num: u16
 }
 
 impl DriverStation {
@@ -153,6 +155,38 @@ impl DriverStation {
             alliance: Alliance::Red(1),
             game_data: String::from("rrr"),
             competition: String::from("unknown"),
+			sequence_num: 0
         }
     }
+
+	fn udp_packet(&self) -> Vec<u8> {
+		let mut packet: Vec<u8> = Vec::new();
+
+		packet.push(((self.sequence_num >> 8) & 0xff) as u8 );
+		packet.push((self.sequence_num & 0xff) as u8);
+
+		packet.push(0x01); // comm version
+		packet.push(self.control_byte()); // control byte
+		packet.push(0); // TODO: actually restart code or rio with this byte.
+		packet.push(self.alliance.to_position_u8()); // alliance
+
+		// TODO: joystick tags
+
+		packet
+	}
+
+	fn control_byte(&self) -> u8 {
+		let mut byte: u8 = 0;
+		if self.estop {
+			byte |= 0b1000_0000;
+		}
+		// fms is never connected, but if it were that would go here
+		if self.enabled {
+			byte |= 0b0000_0100;
+		}
+
+		byte |= self.mode as u8;
+
+		byte
+	}
 }
