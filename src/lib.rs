@@ -1,3 +1,7 @@
+extern crate chrono;
+
+use chrono::prelude::*;
+
 use std::default::Default;
 
 mod joystick;
@@ -18,6 +22,7 @@ pub struct DriverStation {
     game_data: String,
     competition: String,
     sequence_num: u16,
+    request_time: bool,
 }
 
 impl DriverStation {
@@ -52,6 +57,17 @@ impl DriverStation {
             }
         }
 
+        // datetime and timezone
+        if self.request_time {
+            // timezone
+            packet.push(TIMEZONE.len() as u8 + 1); // size
+            packet.push(0x10); // id
+            packet.extend(TIMEZONE.as_bytes());
+
+            // date and time
+            packet.extend(date_packet());
+        }
+
         packet
     }
 
@@ -71,6 +87,26 @@ impl DriverStation {
     }
 }
 
+fn date_packet() -> Vec<u8> {
+    let mut packet = Vec::new();
+    let now = Utc::now();
+    packet.push(11); // size
+    packet.push(0x0f); // id
+    let nanos = now.nanosecond();
+    let micros = nanos / 1000;
+    packet.push(((micros >> 24) & 0xff) as u8);
+    packet.push(((micros >> 16) & 0xff) as u8);
+    packet.push(((micros >> 8) & 0xff) as u8);
+    packet.push(((micros >> 0) & 0xff) as u8);
+    packet.push(now.second() as u8);
+    packet.push(now.minute() as u8);
+    packet.push(now.hour() as u8);
+    packet.push(now.day() as u8); // should this be day0?
+    packet.push(now.month0() as u8);
+    packet.push((now.year() - 1900) as u8);
+    packet
+}
+
 impl Default for DriverStation {
     fn default() -> Self {
         DriverStation {
@@ -82,6 +118,7 @@ impl Default for DriverStation {
             game_data: String::new(),
             competition: String::from("unknown"),
             sequence_num: 0,
+            request_time: false,
         }
     }
 }
