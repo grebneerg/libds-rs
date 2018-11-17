@@ -1,13 +1,19 @@
-use byteorder::{ByteOrder, NetworkEndian};
+use byteorder::{ByteOrder, NetworkEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::VecDeque;
+use std::io::{Cursor, Write};
 
-/// [Packet] represents a data packet and allows for extracting components in order.
-pub struct Packet(VecDeque<u8>);
+/// [PacketReader] represents a recieved data packet and allows for extracting components in order.
+pub struct PacketReader(VecDeque<u8>);
 
-impl Packet {
+impl PacketReader {
     /// Creates a [Packet] from the given [Vec<u8>].
     pub fn from_vec(vec: Vec<u8>) -> Self {
-        Packet(VecDeque::from(vec))
+        PacketReader(VecDeque::from(vec))
+    }
+
+    /// Returns a [Vec] of the remaining bytes.
+    pub fn into_vec(self) -> Vec<u8> {
+        Vec::from(self.0)
     }
 
     /// Returns the number of bytes left in the [Packet].
@@ -81,5 +87,72 @@ pub fn extract_string_u16_size(bytes: &mut VecDeque<u8>) -> Option<String> {
             }
             Some(String::from_utf8_lossy(vec.as_ref()).to_string())
         }
+    }
+}
+
+/// [PacketWriter] represents a new data packet and allows for adding components in order.
+pub struct PacketWriter(Cursor<Vec<u8>>);
+
+impl PacketWriter {
+    /// Creates a new [PacketWriter]
+    pub fn new() -> Self {
+        PacketWriter(Cursor::new(Vec::new()))
+    }
+
+    /// Returns a [Vec<u8>] representing the packet.
+    pub fn into_vec(self) -> Vec<u8> {
+        self.0.into_inner()
+    }
+
+    /// Returns the length of the packet in bytes.
+    pub fn len(&self) -> usize {
+        self.0.get_ref().len()
+    }
+
+    /// Writes one [u8] to the end of the packet.
+    pub fn write_u8(&mut self, val: u8) {
+        self.0.write(&[val.to_be()]).unwrap();
+    }
+
+    /// Writes one [i8] to the end of the packet.
+    pub fn write_i8(&mut self, val: i8) {
+        self.0.write(&[val.to_be() as u8]).unwrap();
+    }
+
+    /// Writes one [u16] to the end of the packet.
+    pub fn write_u16(&mut self, val: u16) {
+        self.0.write_u16::<NetworkEndian>(val).unwrap();
+    }
+
+    /// Writes one [i16] to the end of the packet.
+    pub fn write_i16(&mut self, val: i16) {
+        self.0.write_i16::<NetworkEndian>(val).unwrap();
+    }
+
+    /// Writes one [u32] to the end of the packet.
+    pub fn write_u32(&mut self, val: u32) {
+        self.0.write_u32::<NetworkEndian>(val).unwrap();
+    }
+
+    /// Writes one [f32] to the end of the packet.
+    pub fn write_f32(&mut self, val: f32) {
+        self.0.write_f32::<NetworkEndian>(val).unwrap();
+    }
+
+    /// Writes a [String] to the end of the packet.
+    pub fn write_string(&mut self, val: String) {
+        self.0.write(val.as_bytes()).unwrap();
+    }
+
+    pub fn append_packet(&mut self, other: PacketWriter) {
+        self.0.write(other.into_vec().as_ref()).unwrap();
+    }
+
+    pub fn write_slice(&mut self, slice: &[u8]) {
+        self.0.write(slice).unwrap();
+    }
+
+    pub fn write_vec(&mut self, vec: Vec<u8>) {
+        self.write_slice(vec.as_ref());
     }
 }

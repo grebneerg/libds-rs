@@ -1,6 +1,6 @@
 use std::convert::From;
 
-use bytes::Packet;
+use bytes::PacketReader;
 use states::RobotMode;
 
 pub(crate) struct Trace {
@@ -53,7 +53,7 @@ struct RioUdpPacket {
     trace: Trace,
     battery_voltage: f32,
     request_date: bool,
-    tags: Packet, // TODO: parse tags from this Packet
+    tags: PacketReader, // TODO: parse tags from this Packet
 }
 
 impl RioUdpPacket {
@@ -61,7 +61,7 @@ impl RioUdpPacket {
         if bytes.len() > 8 {
             None
         } else {
-            let mut packet = Packet::from_vec(bytes);
+            let mut packet = PacketReader::from_vec(bytes);
             Some(RioUdpPacket {
                 sequence_num: packet.next_u16().unwrap(),
                 comm_version: packet.next_u8().unwrap(),
@@ -130,7 +130,7 @@ impl RioTcpPacket {
             None
         } else {
             use self::RioTcpPacket::*;
-            let mut packet = Packet::from_vec(bytes);
+            let mut packet = PacketReader::from_vec(bytes);
             match packet.next_u8().unwrap() {
                 0x00 => Some(RadioEvent({
                     let size = packet.len();

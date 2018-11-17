@@ -1,3 +1,5 @@
+use bytes::PacketWriter;
+
 #[derive(Clone)]
 enum JoystickType {
     Unknown = -1,
@@ -61,14 +63,14 @@ impl Joystick {
     }
 
     pub fn udp_tag(&self) -> Vec<u8> {
-        let mut tag: Vec<u8> = Vec::new();
+        let mut tag = PacketWriter::new();
 
-        tag.push(self.axes.len() as u8);
+        tag.write_u8(self.axes.len() as u8);
         for axis in &self.axes {
-            tag.push(*axis as u8); // this might work
+            tag.write_u8(*axis as u8); // this might work
         }
 
-        tag.push(self.buttons.len() as u8);
+        tag.write_u8(self.buttons.len() as u8);
         let mut index = 7;
         let mut byte: u8 = 0;
         for button in &self.buttons {
@@ -77,21 +79,21 @@ impl Joystick {
             }
             index -= 1;
             if index < 0 {
-                tag.push(byte);
+                tag.write_u8(byte);
                 byte = 0;
                 index = 7;
             }
         }
         if index != 7 {
-            tag.push(byte);
+            tag.write_u8(byte);
         }
 
-        tag.push(self.povs.len() as u8);
+        tag.write_u8(self.povs.len() as u8);
         for pov in &self.povs {
-            tag.push(((pov >> 8) & 0xff as i16) as u8);
-            tag.push((pov & 0xff) as u8);
+            tag.write_u8(((pov >> 8) & 0xff as i16) as u8);
+            tag.write_u8((pov & 0xff) as u8);
         }
 
-        tag
+        tag.into_vec()
     }
 }

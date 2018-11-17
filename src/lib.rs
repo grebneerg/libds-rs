@@ -10,6 +10,7 @@ mod joystick;
 mod messages;
 mod states;
 
+use bytes::PacketWriter;
 use joystick::Joystick;
 use states::{Alliance, RobotMode};
 
@@ -33,44 +34,43 @@ impl DriverStation {
     }
 
     fn udp_packet(&mut self) -> Vec<u8> {
-        let mut packet: Vec<u8> = Vec::new();
+        let mut packet = PacketWriter::new();
 
         // Packet number in case they arrive out of order
-        packet.push(((self.sequence_num >> 8) & 0xff) as u8);
-        packet.push((self.sequence_num & 0xff) as u8);
+        packet.write_u16(self.sequence_num);
         self.sequence_num += 1;
 
-        packet.push(0x01); // comm version
-        packet.push(self.control_byte()); // control byte
-        packet.push(0); // TODO: actually restart code or rio with this byte.
-        packet.push(self.alliance.to_position_u8()); // alliance
+        packet.write_u8(0x01); // comm version
+        packet.write_u8(self.control_byte()); // control byte
+        packet.write_u8(0); // TODO: actually restart code or rio with this byte.
+        packet.write_u8(self.alliance.to_position_u8()); // alliance
 
         // joystick tags
         for stick in &self.joysticks {
             if let Some(stick) = stick {
                 let mut tag = stick.udp_tag();
-                packet.push(tag.len() as u8 + 1); // size
-                packet.push(0x0c); // id
-                packet.extend(tag); // joystick tag info
+                packet.write_u8(tag.len() as u8 + 1); // size
+                packet.write_u8(0x0c); // id
+                packet.write_vec(tag); // joystick tag info
             } else {
                 // Empty joystick tag
-                packet.push(0x01); // size
-                packet.push(0x0c); // id
+                packet.write_u8(0x01); // size
+                packet.write_u8(0x0c); // id
             }
         }
 
         // datetime and timezone
         if self.request_time {
             // timezone
-            packet.push(TIMEZONE.len() as u8 + 1); // size
-            packet.push(0x10); // id
-            packet.extend(TIMEZONE.as_bytes());
+            packet.write_u8(TIMEZONE.len() as u8 + 1); // size
+            packet.write_u8(0x10); // id
+            packet.write_slice(TIMEZONE.as_bytes());
 
             // date and time
-            packet.extend(date_packet());
+            packet.write_vec(date_packet());
         }
 
-        packet
+        packet.into_vec()
     }
 
     fn control_byte(&self) -> u8 {
@@ -90,23 +90,20 @@ impl DriverStation {
 }
 
 fn date_packet() -> Vec<u8> {
-    let mut packet = Vec::new();
+    let mut packet = PacketWriter::new();
     let now = Utc::now();
-    packet.push(11); // size
-    packet.push(0x0f); // id
+    packet.write_u8(11); // size
+    packet.write_u8(0x0f); // id
     let nanos = now.nanosecond();
     let micros = nanos / 1000;
-    packet.push(((micros >> 24) & 0xff) as u8);
-    packet.push(((micros >> 16) & 0xff) as u8);
-    packet.push(((micros >> 8) & 0xff) as u8);
-    packet.push(((micros >> 0) & 0xff) as u8);
-    packet.push(now.second() as u8);
-    packet.push(now.minute() as u8);
-    packet.push(now.hour() as u8);
-    packet.push(now.day() as u8); // should this be day0?
-    packet.push(now.month0() as u8);
-    packet.push((now.year() - 1900) as u8);
-    packet
+    packet.write_u32(micros);
+    packet.write_u8(now.second() as u8);
+    packet.write_u8(now.minute() as u8);
+    packet.write_u8(now.hour() as u8);
+    packet.write_u8(now.day() as u8); // should this be day0?
+    packet.write_u8(now.month0() as u8);
+    packet.write_u8((now.year() - 1900) as u8);
+    packet.into_vec()
 }
 
 impl Default for DriverStation {
