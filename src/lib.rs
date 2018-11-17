@@ -11,7 +11,6 @@ mod messages;
 mod states;
 
 use joystick::Joystick;
-use messages::{Status, Trace};
 use states::{Alliance, RobotMode};
 
 const TIMEZONE: &'static str = "UTC";

@@ -1,10 +1,7 @@
-use std::collections::VecDeque;
 use std::convert::From;
 
-use byteorder::{ByteOrder, NetworkEndian};
-
-use bytes::extract_string_u16_size;
-use states::{Alliance, RobotMode};
+use bytes::Packet;
+use states::RobotMode;
 
 pub(crate) struct Trace {
     robot_code: bool,
@@ -56,7 +53,7 @@ struct RioUdpPacket {
     trace: Trace,
     battery_voltage: f32,
     request_date: bool,
-    tags: VecDeque<u8>, // TODO: parse tags from this vec
+    tags: Packet, // TODO: parse tags from this Packet
 }
 
 impl RioUdpPacket {
@@ -64,19 +61,16 @@ impl RioUdpPacket {
         if bytes.len() > 8 {
             None
         } else {
-            let mut bytes = VecDeque::from(bytes);
+            let mut packet = Packet::from_vec(bytes);
             Some(RioUdpPacket {
-                sequence_num: NetworkEndian::read_u16(&[
-                    bytes.pop_front().unwrap(),
-                    bytes.pop_front().unwrap(),
-                ]),
-                comm_version: bytes.pop_front().unwrap(),
-                status: bytes.pop_front().unwrap().into(),
-                trace: bytes.pop_front().unwrap().into(),
-                battery_voltage: f32::from(bytes.pop_front().unwrap())
-                    + f32::from(bytes.pop_front().unwrap()) / 256.0,
-                request_date: bytes.pop_front().unwrap() == 0x01,
-                tags: bytes,
+                sequence_num: packet.next_u16().unwrap(),
+                comm_version: packet.next_u8().unwrap(),
+                status: packet.next_u8().unwrap().into(),
+                trace: packet.next_u8().unwrap().into(),
+                battery_voltage: f32::from(packet.next_u8().unwrap())
+                    + f32::from(packet.next_u8().unwrap()) / 256.0,
+                request_date: packet.next_u8().unwrap() == 0x01,
+                tags: packet,
             })
         }
     }
@@ -136,88 +130,67 @@ impl RioTcpPacket {
             None
         } else {
             use self::RioTcpPacket::*;
-            let mut bytes = VecDeque::from(bytes);
-            match bytes.pop_front().unwrap() {
-                0x00 => Some(RadioEvent(
-                    String::from_utf8_lossy(Vec::from(bytes).as_ref()).to_string(),
-                )),
-                0x04 => if bytes.len() != 4 {
+            let mut packet = Packet::from_vec(bytes);
+            match packet.next_u8().unwrap() {
+                0x00 => Some(RadioEvent({
+                    let size = packet.len();
+                    packet.extract_string(size).unwrap()
+                })),
+                0x04 => if packet.len() != 4 {
                     None
                 } else {
                     Some(DisableFaults {
-                        comms: NetworkEndian::read_u16(&[
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                        ]),
-                        twelve_v: NetworkEndian::read_u16(&[
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                        ]),
+                        comms: packet.next_u16().unwrap(),
+                        twelve_v: packet.next_u16().unwrap(),
                     })
                 },
-                0x05 => if bytes.len() != 6 {
+                0x05 => if packet.len() != 6 {
                     None
                 } else {
                     Some(RailFaults {
-                        six_v: NetworkEndian::read_u16(&[
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                        ]),
-                        five_v: NetworkEndian::read_u16(&[
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                        ]),
-                        three_point_three_v: NetworkEndian::read_u16(&[
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                        ]),
+                        six_v: packet.next_u16().unwrap(),
+                        five_v: packet.next_u16().unwrap(),
+                        three_point_three_v: packet.next_u16().unwrap(),
                     })
                 },
-                0x0a => if bytes.len() < 5 {
+                0x0a => if packet.len() < 5 {
                     None
                 } else {
                     None // TODO
                 },
-                0x0b => if bytes.len() < 16 {
+                0x0b => if packet.len() < 16 {
                     None
                 } else {
                     Some(ErrorMessage {
-                        timestamp: NetworkEndian::read_f32(&[
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                        ]),
-                        sequence_number: NetworkEndian::read_u16(&[
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                        ]),
-                        print_msg: bytes.pop_front().unwrap() == 0x01,
-                        error_code: NetworkEndian::read_u16(&[
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                        ]),
-                        is_error: bytes.pop_front().unwrap() != 0,
-                        details: extract_string_u16_size(&mut bytes).unwrap(),
-                        location: extract_string_u16_size(&mut bytes).unwrap(),
-                        call_stack: extract_string_u16_size(&mut bytes).unwrap(),
+                        timestamp: packet.next_f32().unwrap(),
+                        sequence_number: packet.next_u16().unwrap(),
+                        print_msg: packet.next_u8().unwrap() == 0x01,
+                        error_code: packet.next_u16().unwrap(),
+                        is_error: packet.next_u8().unwrap() != 0,
+                        details: {
+                            let size = packet.next_u16().unwrap() as usize;
+                            packet.extract_string(size).unwrap()
+                        },
+                        location: {
+                            let size = packet.next_u16().unwrap() as usize;
+                            packet.extract_string(size).unwrap()
+                        },
+                        call_stack: {
+                            let size = packet.next_u16().unwrap() as usize;
+                            packet.extract_string(size).unwrap()
+                        },
                     })
                 },
-                0x0c => if bytes.len() < 6 {
+                0x0c => if packet.len() < 6 {
                     None
                 } else {
                     Some(StandardOutput {
-                        timestamp: NetworkEndian::read_f32(&[
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                        ]),
-                        sequence_number: NetworkEndian::read_u16(&[
-                            bytes.pop_front().unwrap(),
-                            bytes.pop_front().unwrap(),
-                        ]),
-                        message: String::from_utf8_lossy(Vec::from(bytes).as_ref()).to_string(),
+                        timestamp: packet.next_f32().unwrap(),
+                        sequence_number: packet.next_u16().unwrap(),
+                        message: {
+                            let size = packet.len();
+                            packet.extract_string(size).unwrap()
+                        },
                     })
                 },
                 _ => None,
