@@ -1,6 +1,6 @@
 use std::convert::From;
 
-use bytes::PacketReader;
+use packet::PacketReader;
 use states::RobotMode;
 
 pub(crate) struct Trace {
@@ -46,7 +46,7 @@ impl From<u8> for Status {
     }
 }
 
-struct RioUdpPacket {
+pub struct RioUdpPacket {
     sequence_num: u16,
     comm_version: u8,
     status: Status,
@@ -57,7 +57,7 @@ struct RioUdpPacket {
 }
 
 impl RioUdpPacket {
-    fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
+    pub fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
         if bytes.len() > 8 {
             None
         } else {
@@ -76,7 +76,7 @@ impl RioUdpPacket {
     }
 }
 
-enum RioTcpPacket {
+pub enum RioTcpPacket {
     RadioEvent(String), // 0x00
     UsageReport {
         // Ignoring this for now, apparently just forwarded to fms anyway.
@@ -125,7 +125,7 @@ enum RioTcpPacket {
 }
 
 impl RioTcpPacket {
-    fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
+    pub fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
         if bytes.len() == 0 {
             None
         } else {
@@ -199,9 +199,14 @@ impl RioTcpPacket {
     }
 }
 
-enum DeviceType {
+pub enum DeviceType {
     Software = 0,
     CANTalon = 2,
     PDP = 8,
     PCM = 9,
+}
+
+pub enum RioPacket {
+    Udp(RioUdpPacket),
+    Tcp(RioTcpPacket),
 }

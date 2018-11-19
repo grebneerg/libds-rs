@@ -1,22 +1,144 @@
 extern crate byteorder;
 extern crate chrono;
 
+use byteorder::{ByteOrder, NetworkEndian};
 use chrono::prelude::*;
 
 use std::default::Default;
+use std::io;
+use std::io::Read;
+use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
+use std::sync::{mpsc, Arc, Mutex};
+use std::thread;
+use std::thread::JoinHandle;
 
-mod bytes;
 mod joystick;
 mod messages;
+mod packet;
 mod states;
 
-use bytes::PacketWriter;
 use joystick::Joystick;
+use messages::*;
+use packet::PacketWriter;
 use states::{Alliance, RobotMode};
 
 const TIMEZONE: &'static str = "UTC";
 
+struct DSConnection {
+    thread: JoinHandle<()>,
+    sender: mpsc::Sender<Signal>,
+    errors: mpsc::Receiver<io::Result<()>>,
+    err: Option<io::Error>,
+}
+
+impl DSConnection {
+    fn release(self) {
+        drop(self);
+    }
+
+    fn new(addr: IpAddr, state: Arc<Mutex<DriverStationState>>) -> io::Result<Self> {
+        let (sender_signal, receiver_signal) = mpsc::channel::<Signal>();
+
+        let (sender_res, receiver_res) = mpsc::channel::<io::Result<()>>();
+
+        let mut tcp = TcpStream::connect(SocketAddr::new(addr, 1740))?;
+        tcp.set_nonblocking(true)?;
+
+        let udp = UdpSocket::bind(SocketAddr::new(addr, 1150))?;
+        udp.set_nonblocking(true)?;
+
+        let t = thread::spawn(move || loop {
+            match receiver_signal.try_recv() {
+                Ok(Signal::Disconnect) | Err(mpsc::TryRecvError::Disconnected) => break,
+                _ => {}
+            }
+
+            let mut udp_buf = vec![0u8; 100];
+            match udp.recv(&mut udp_buf) {
+                Ok(n) => unimplemented!(),
+                Err(e) => {
+                    if e.kind() != io::ErrorKind::WouldBlock {
+                        sender_res.send(Err(e)).unwrap();
+                    }
+                }
+            }
+
+            let mut size_buf = vec![0u8; 2];
+            match tcp.read_exact(&mut size_buf) {
+                Ok(_) => {
+                    let size = NetworkEndian::read_u16(&size_buf);
+                    let mut buf = vec![0u8; size as usize];
+                    match tcp.read_exact(&mut buf) {
+                        Ok(_) => if let Some(packet) = RioTcpPacket::from_bytes(buf) {
+                            state.lock().unwrap().update_from_tcp(packet);
+                        },
+                        Err(e) => {
+                            if e.kind() != io::ErrorKind::WouldBlock {
+                                sender_res.send(Err(e)).unwrap();
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    if e.kind() != io::ErrorKind::WouldBlock {
+                        sender_res.send(Err(e)).unwrap();
+                    }
+                }
+            }
+        });
+
+        Ok(DSConnection {
+            thread: t,
+            sender: sender_signal,
+            errors: receiver_res,
+            err: None,
+        })
+    }
+
+    fn status(&self) -> io::Result<()> {
+        match self.errors.try_recv() {
+            Err(mpsc::TryRecvError::Empty) => Ok(()),
+            Err(mpsc::TryRecvError::Disconnected) => Err(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
+                "thread not connected",
+            )),
+            Ok(ior) => ior,
+        }
+    }
+}
+
+impl Drop for DSConnection {
+    fn drop(&mut self) {
+        self.sender.send(Signal::Disconnect).unwrap_or(());
+    }
+}
+
 pub struct DriverStation {
+    state: Arc<Mutex<DriverStationState>>,
+    connection: Option<DSConnection>,
+}
+
+impl DriverStation {
+    fn connect(&mut self, addr: IpAddr) -> io::Result<()> {
+        if let Some(conn) = self.connection.take() {
+            conn.release();
+        }
+        self.connection = Some(DSConnection::new(addr, self.state.clone())?);
+        Ok(())
+    }
+
+    fn is_connected(&self) -> bool {
+        match self.connection {
+            None => false,
+            Some(ref conn) => match conn.status() {
+                Ok(_) => true,
+                Err(_) => false,
+            },
+        }
+    }
+}
+
+pub struct DriverStationState {
     joysticks: Vec<Option<Joystick>>,
     estop: bool,
     enabled: bool,
@@ -28,7 +150,7 @@ pub struct DriverStation {
     request_time: bool,
 }
 
-impl DriverStation {
+impl DriverStationState {
     pub fn new() -> Self {
         Default::default()
     }
@@ -87,6 +209,10 @@ impl DriverStation {
 
         byte
     }
+
+    fn update_from_tcp(&mut self, packet: RioTcpPacket) {
+        unimplemented!();
+    }
 }
 
 fn date_packet() -> Vec<u8> {
@@ -106,9 +232,9 @@ fn date_packet() -> Vec<u8> {
     packet.into_vec()
 }
 
-impl Default for DriverStation {
+impl Default for DriverStationState {
     fn default() -> Self {
-        DriverStation {
+        DriverStationState {
             joysticks: vec![None; 6],
             estop: false,
             enabled: false,
@@ -120,4 +246,10 @@ impl Default for DriverStation {
             request_time: false,
         }
     }
+}
+
+enum Signal {
+    Udp,
+    Tcp,
+    Disconnect,
 }

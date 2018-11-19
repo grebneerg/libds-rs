@@ -1,4 +1,4 @@
-use bytes::PacketWriter;
+use packet::PacketWriter;
 
 #[derive(Clone)]
 enum JoystickType {
