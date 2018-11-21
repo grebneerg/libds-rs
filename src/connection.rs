@@ -4,6 +4,7 @@ use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 use byteorder::{ByteOrder, NetworkEndian};
 
@@ -30,8 +31,12 @@ impl DSConnection {
         let mut tcp = TcpStream::connect(SocketAddr::new(addr, 1740))?;
         tcp.set_nonblocking(true)?;
 
-        let udp = UdpSocket::bind(SocketAddr::new(addr, 1150))?;
-        udp.set_nonblocking(true)?;
+        let udp_recv = UdpSocket::bind(SocketAddr::new(addr, 1150))?;
+        udp_recv.set_nonblocking(true)?;
+
+		let udp_send = UdpSocket::bind(SocketAddr::new(addr, 1110))?;
+
+		let mut last = Instant::now();
 
         let t = thread::spawn(move || loop {
             match receiver_signal.try_recv() {
@@ -40,7 +45,7 @@ impl DSConnection {
             }
 
             let mut udp_buf = vec![0u8; 100];
-            match udp.recv(&mut udp_buf) {
+            match udp_recv.recv(&mut udp_buf) {
                 Ok(n) => unimplemented!(),
                 Err(e) => {
                     if e.kind() != io::ErrorKind::WouldBlock {
@@ -71,6 +76,18 @@ impl DSConnection {
                     }
                 }
             }
+
+			if last.elapsed() >= Duration::from_millis(20) {
+				last = Instant::now();
+				match udp_send.send(state.lock().unwrap().udp_packet().as_ref()) {
+					Ok(s) => {},
+					Err(e) => {
+						if e.kind() != io::ErrorKind::WouldBlock {
+							sender_res.send(Err(e)).unwrap();
+						}
+					}
+				}
+			}
         });
 
         Ok(DSConnection {
@@ -100,7 +117,6 @@ impl Drop for DSConnection {
 }
 
 pub enum Signal {
-    Udp,
     Tcp,
     Disconnect,
 }
