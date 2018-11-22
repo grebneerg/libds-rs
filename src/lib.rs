@@ -27,20 +27,27 @@ use packet::PacketWriter;
 use states::{Alliance, RobotMode};
 
 pub struct DriverStation {
-    state: Arc<Mutex<DriverStationState>>,
+    pub state: Arc<Mutex<DriverStationState>>,
     connection: Option<DSConnection>,
 }
 
 impl DriverStation {
-    fn connect(&mut self, addr: IpAddr) -> io::Result<()> {
+    pub fn new() -> Self {
+        DriverStation {
+            state: Arc::new(Mutex::new(Default::default())),
+            connection: None,
+        }
+    }
+
+    pub fn connect(&mut self, addr: IpAddr) -> io::Result<()> {
         if let Some(conn) = self.connection.take() {
-            conn.release();
+            drop(conn);
         }
         self.connection = Some(DSConnection::new(addr, self.state.clone())?);
         Ok(())
     }
 
-    fn is_connected(&self) -> bool {
+    pub fn is_connected(&self) -> bool {
         match self.connection {
             None => false,
             Some(ref conn) => match conn.status() {

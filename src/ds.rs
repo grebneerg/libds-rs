@@ -10,7 +10,7 @@ const TIMEZONE: &'static str = "UTC";
 pub struct DriverStationState {
     joysticks: Vec<Option<Joystick>>,
     estop: bool,
-    enabled: bool,
+    pub enabled: bool,
     mode: RobotMode,
     alliance: Alliance,
     game_data: String,

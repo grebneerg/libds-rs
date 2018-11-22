@@ -5,7 +5,7 @@ plugins {
     id "jaci.openrio.gradle.GradleRIO" version "2018.02.17"
 }
 
-def TEAM = 639
+def TEAM = 9639
 def ROBOT_CLASS = "org.team639.robot.Robot"
 
 sourceCompatibility = 1.8
@@ -17,6 +17,7 @@ deploy {
     targets {
         target("roborio", jaci.openrio.gradle.frc.RoboRIO) {
             team = TEAM
+            addresses << "169.254.204.207"
         }
     }
     artifacts {

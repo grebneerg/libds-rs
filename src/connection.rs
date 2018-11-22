@@ -19,24 +19,23 @@ pub struct DSConnection {
 }
 
 impl DSConnection {
-    pub fn release(self) {
-        drop(self);
-    }
-
     pub fn new(addr: IpAddr, state: Arc<Mutex<DriverStationState>>) -> io::Result<Self> {
         let (sender_signal, receiver_signal) = mpsc::channel::<Signal>();
 
         let (sender_res, receiver_res) = mpsc::channel::<io::Result<()>>();
 
-        let mut tcp = TcpStream::connect(SocketAddr::new(addr, 1740))?;
+        // TODO: Create sockets within other thread and add mechanism to detect status of connections
+        // (connecting, failed, connected, error, etc)
+
+        let mut tcp = TcpStream::connect(SocketAddr::new(addr.clone(), 1740))?;
         tcp.set_nonblocking(true)?;
 
-        let udp_recv = UdpSocket::bind(SocketAddr::new(addr, 1150))?;
+        let udp_recv = UdpSocket::bind(SocketAddr::new(addr.clone(), 1150))?;
         udp_recv.set_nonblocking(true)?;
 
-		let udp_send = UdpSocket::bind(SocketAddr::new(addr, 1110))?;
+        let udp_send = UdpSocket::bind(SocketAddr::new(addr.clone(), 1110))?;
 
-		let mut last = Instant::now();
+        let mut last = Instant::now();
 
         let t = thread::spawn(move || loop {
             match receiver_signal.try_recv() {
@@ -77,17 +76,17 @@ impl DSConnection {
                 }
             }
 
-			if last.elapsed() >= Duration::from_millis(20) {
-				last = Instant::now();
-				match udp_send.send(state.lock().unwrap().udp_packet().as_ref()) {
-					Ok(s) => {},
-					Err(e) => {
-						if e.kind() != io::ErrorKind::WouldBlock {
-							sender_res.send(Err(e)).unwrap();
-						}
-					}
-				}
-			}
+            if last.elapsed() >= Duration::from_millis(20) {
+                last = Instant::now();
+                match udp_send.send(state.lock().unwrap().udp_packet().as_ref()) {
+                    Ok(s) => {}
+                    Err(e) => {
+                        if e.kind() != io::ErrorKind::WouldBlock {
+                            sender_res.send(Err(e)).unwrap();
+                        }
+                    }
+                }
+            }
         });
 
         Ok(DSConnection {
