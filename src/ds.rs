@@ -82,6 +82,11 @@ impl DriverStationState {
     pub fn update_from_tcp(&mut self, packet: RioTcpPacket) {
         unimplemented!();
     }
+
+	pub fn update_from_udp(&mut self, packet: RioUdpPacket) {
+		self.request_time = packet.request_date;
+		// TODO: Finish implementing this
+	}
 }
 
 fn date_packet() -> Vec<u8> {

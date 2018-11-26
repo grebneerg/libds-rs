@@ -3,7 +3,7 @@ use std::convert::From;
 use packet::PacketReader;
 use states::RobotMode;
 
-pub(crate) struct Trace {
+pub struct Trace {
     robot_code: bool,
     is_roborio: bool,
     // these modes don't seem to quite line up with what we send
@@ -26,7 +26,7 @@ impl From<u8> for Trace {
     }
 }
 
-pub(crate) struct Status {
+pub struct Status {
     e_stop: bool,
     brownout: bool,
     code_initializing: bool,
@@ -47,13 +47,13 @@ impl From<u8> for Status {
 }
 
 pub struct RioUdpPacket {
-    sequence_num: u16,
-    comm_version: u8,
-    status: Status,
-    trace: Trace,
-    battery_voltage: f32,
-    request_date: bool,
-    tags: PacketReader, // TODO: parse tags from this Packet
+    pub sequence_num: u16,
+    pub comm_version: u8,
+    pub status: Status,
+    pub trace: Trace,
+    pub battery_voltage: f32,
+    pub request_date: bool,
+    pub tags: PacketReader, // TODO: parse tags from this Packet
 }
 
 impl RioUdpPacket {

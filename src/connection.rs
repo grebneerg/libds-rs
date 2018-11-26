@@ -27,62 +27,72 @@ impl DSConnection {
         // TODO: Create sockets within other thread and add mechanism to detect status of connections
         // (connecting, failed, connected, error, etc)
 
-        let mut tcp = TcpStream::connect(SocketAddr::new(addr.clone(), 1740))?;
-        tcp.set_nonblocking(true)?;
-
-        let udp_recv = UdpSocket::bind(SocketAddr::new(addr.clone(), 1150))?;
-        udp_recv.set_nonblocking(true)?;
-
-        let udp_send = UdpSocket::bind(SocketAddr::new(addr.clone(), 1110))?;
-
         let mut last = Instant::now();
 
-        let t = thread::spawn(move || loop {
-            match receiver_signal.try_recv() {
-                Ok(Signal::Disconnect) | Err(mpsc::TryRecvError::Disconnected) => break,
-                _ => {}
-            }
+        let t = thread::spawn(move || {
+            println!("udp start");
+            let udp = UdpSocket::bind(SocketAddr::new([169, 254, 65, 205].into(), 1150)).unwrap();
+			println!("udp 2");
+			udp.connect(SocketAddr::new(addr.clone(), 1110)).unwrap();
+            udp.set_nonblocking(true).unwrap();
+			println!("udp started");
 
-            let mut udp_buf = vec![0u8; 100];
-            match udp_recv.recv(&mut udp_buf) {
-                Ok(n) => unimplemented!(),
-                Err(e) => {
-                    if e.kind() != io::ErrorKind::WouldBlock {
-                        sender_res.send(Err(e)).unwrap();
+            udp
+                .send(state.lock().unwrap().udp_packet().as_ref())
+                .unwrap();
+
+            println!("tcp start");
+            // let mut tcp = TcpStream::connect(SocketAddr::new(addr.clone(), 1740)).unwrap();
+            // tcp.set_nonblocking(true).unwrap();
+
+            loop {
+                match receiver_signal.try_recv() {
+                    Ok(Signal::Disconnect) | Err(mpsc::TryRecvError::Disconnected) => break,
+                    _ => {}
+                }
+
+                let mut udp_buf = vec![0u8; 100];
+                match udp.recv_from(&mut udp_buf) {
+                    Ok(n) => println!("{:?}", udp_buf),
+                    Err(e) => {
+                        if e.kind() != io::ErrorKind::WouldBlock {
+                            sender_res.send(Err(e)).unwrap();
+                        }
                     }
                 }
-            }
 
-            let mut size_buf = vec![0u8; 2];
-            match tcp.read_exact(&mut size_buf) {
-                Ok(_) => {
-                    let size = NetworkEndian::read_u16(&size_buf);
-                    let mut buf = vec![0u8; size as usize];
-                    match tcp.read_exact(&mut buf) {
-                        Ok(_) => if let Some(packet) = RioTcpPacket::from_bytes(buf) {
-                            state.lock().unwrap().update_from_tcp(packet);
-                        },
+                let mut size_buf = vec![0u8; 2];
+                // match tcp.read_exact(&mut size_buf) {
+                //     Ok(_) => {
+                //         let size = NetworkEndian::read_u16(&size_buf);
+                //         let mut buf = vec![0u8; size as usize];
+                //         match tcp.read_exact(&mut buf) {
+                //             Ok(_) => if let Some(packet) = RioTcpPacket::from_bytes(buf) {
+                //                 state.lock().unwrap().update_from_tcp(packet);
+                //             },
+                //             Err(e) => {
+                //                 if e.kind() != io::ErrorKind::WouldBlock {
+                //                     sender_res.send(Err(e)).unwrap();
+                //                 }
+                //             }
+                //         }
+                //     }
+                //     Err(e) => {
+                //         if e.kind() != io::ErrorKind::WouldBlock {
+                //             sender_res.send(Err(e)).unwrap();
+                //         }
+                //     }
+                // }
+
+                if last.elapsed() >= Duration::from_millis(20) {
+                    last = Instant::now();
+					println!("{:?}", state.lock().unwrap().udp_packet());
+                    match udp.send(state.lock().unwrap().udp_packet().as_ref()) {
+                        Ok(s) => println!("sent {}", s),
                         Err(e) => {
                             if e.kind() != io::ErrorKind::WouldBlock {
                                 sender_res.send(Err(e)).unwrap();
                             }
-                        }
-                    }
-                }
-                Err(e) => {
-                    if e.kind() != io::ErrorKind::WouldBlock {
-                        sender_res.send(Err(e)).unwrap();
-                    }
-                }
-            }
-
-            if last.elapsed() >= Duration::from_millis(20) {
-                last = Instant::now();
-                match udp_send.send(state.lock().unwrap().udp_packet().as_ref()) {
-                    Ok(s) => {}
-                    Err(e) => {
-                        if e.kind() != io::ErrorKind::WouldBlock {
-                            sender_res.send(Err(e)).unwrap();
                         }
                     }
                 }
