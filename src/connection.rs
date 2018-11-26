@@ -32,13 +32,12 @@ impl DSConnection {
         let t = thread::spawn(move || {
             println!("udp start");
             let udp = UdpSocket::bind(SocketAddr::new([169, 254, 65, 205].into(), 1150)).unwrap();
-			println!("udp 2");
-			udp.connect(SocketAddr::new(addr.clone(), 1110)).unwrap();
+            println!("udp 2");
+            udp.connect(SocketAddr::new(addr.clone(), 1110)).unwrap();
             udp.set_nonblocking(true).unwrap();
-			println!("udp started");
+            println!("udp started");
 
-            udp
-                .send(state.lock().unwrap().udp_packet().as_ref())
+            udp.send(state.lock().unwrap().udp_packet().as_ref())
                 .unwrap();
 
             println!("tcp start");
@@ -53,10 +52,15 @@ impl DSConnection {
 
                 let mut udp_buf = vec![0u8; 100];
                 match udp.recv_from(&mut udp_buf) {
-                    Ok(n) => println!("{:?}", udp_buf),
+                    Ok((n, f)) => println!("packet received: {:?}", udp_buf),
                     Err(e) => {
                         if e.kind() != io::ErrorKind::WouldBlock {
-                            sender_res.send(Err(e)).unwrap();
+                            if let Err(e) = sender_res.send(Err(e)) {
+                                break;
+                            }
+                            println!("uh oh");
+                        } else {
+                            println!("got nothing");
                         }
                     }
                 }
@@ -72,26 +76,31 @@ impl DSConnection {
                 //             },
                 //             Err(e) => {
                 //                 if e.kind() != io::ErrorKind::WouldBlock {
-                //                     sender_res.send(Err(e)).unwrap();
+                //                     if let Err(e) = sender_res.send(Err(e)) {
+                // 						break;
+                // 					}
                 //                 }
                 //             }
                 //         }
                 //     }
                 //     Err(e) => {
                 //         if e.kind() != io::ErrorKind::WouldBlock {
-                //             sender_res.send(Err(e)).unwrap();
+                //             if let Err(e) = sender_res.send(Err(e)) {
+                // 				break;
+                // 			}
                 //         }
                 //     }
                 // }
 
                 if last.elapsed() >= Duration::from_millis(20) {
                     last = Instant::now();
-					println!("{:?}", state.lock().unwrap().udp_packet());
                     match udp.send(state.lock().unwrap().udp_packet().as_ref()) {
-                        Ok(s) => println!("sent {}", s),
+                        Ok(s) => {}
                         Err(e) => {
                             if e.kind() != io::ErrorKind::WouldBlock {
-                                sender_res.send(Err(e)).unwrap();
+                                if let Err(e) = sender_res.send(Err(e)) {
+                                    break;
+                                }
                             }
                         }
                     }

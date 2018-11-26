@@ -83,10 +83,10 @@ impl DriverStationState {
         unimplemented!();
     }
 
-	pub fn update_from_udp(&mut self, packet: RioUdpPacket) {
-		self.request_time = packet.request_date;
-		// TODO: Finish implementing this
-	}
+    pub fn update_from_udp(&mut self, packet: RioUdpPacket) {
+        self.request_time = packet.request_date;
+        // TODO: Finish implementing this
+    }
 }
 
 fn date_packet() -> Vec<u8> {
