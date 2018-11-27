@@ -80,7 +80,7 @@ impl DriverStationState {
     }
 
     pub fn update_from_tcp(&mut self, packet: RioTcpPacket) {
-        unimplemented!();
+        // TODO: implement
     }
 
     pub fn update_from_udp(&mut self, packet: RioUdpPacket) {

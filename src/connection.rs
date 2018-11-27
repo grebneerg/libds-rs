@@ -31,7 +31,7 @@ impl DSConnection {
 
         let t = thread::spawn(move || {
             println!("udp start");
-            let udp = UdpSocket::bind(SocketAddr::new([169, 254, 65, 205].into(), 1150)).unwrap();
+            let udp = UdpSocket::bind("169.254.65.205:1150").unwrap();
             println!("udp 2");
             udp.connect(SocketAddr::new(addr.clone(), 1110)).unwrap();
             udp.set_nonblocking(true).unwrap();
@@ -41,8 +41,8 @@ impl DSConnection {
                 .unwrap();
 
             println!("tcp start");
-            // let mut tcp = TcpStream::connect(SocketAddr::new(addr.clone(), 1740)).unwrap();
-            // tcp.set_nonblocking(true).unwrap();
+            let mut tcp = TcpStream::connect(SocketAddr::new(addr.clone(), 1740)).unwrap();
+            tcp.set_nonblocking(true).unwrap();
 
             loop {
                 match receiver_signal.try_recv() {
@@ -66,31 +66,31 @@ impl DSConnection {
                 }
 
                 let mut size_buf = vec![0u8; 2];
-                // match tcp.read_exact(&mut size_buf) {
-                //     Ok(_) => {
-                //         let size = NetworkEndian::read_u16(&size_buf);
-                //         let mut buf = vec![0u8; size as usize];
-                //         match tcp.read_exact(&mut buf) {
-                //             Ok(_) => if let Some(packet) = RioTcpPacket::from_bytes(buf) {
-                //                 state.lock().unwrap().update_from_tcp(packet);
-                //             },
-                //             Err(e) => {
-                //                 if e.kind() != io::ErrorKind::WouldBlock {
-                //                     if let Err(e) = sender_res.send(Err(e)) {
-                // 						break;
-                // 					}
-                //                 }
-                //             }
-                //         }
-                //     }
-                //     Err(e) => {
-                //         if e.kind() != io::ErrorKind::WouldBlock {
-                //             if let Err(e) = sender_res.send(Err(e)) {
-                // 				break;
-                // 			}
-                //         }
-                //     }
-                // }
+                match tcp.read_exact(&mut size_buf) {
+                    Ok(_) => {
+                        let size = NetworkEndian::read_u16(&size_buf);
+                        let mut buf = vec![0u8; size as usize];
+                        match tcp.read_exact(&mut buf) {
+                            Ok(_) => if let Some(packet) = RioTcpPacket::from_bytes(buf) {
+                                state.lock().unwrap().update_from_tcp(packet);
+                            },
+                            Err(e) => {
+                                if e.kind() != io::ErrorKind::WouldBlock {
+                                    if let Err(e) = sender_res.send(Err(e)) {
+                						break;
+                					}
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        if e.kind() != io::ErrorKind::WouldBlock {
+                            if let Err(e) = sender_res.send(Err(e)) {
+                				break;
+                			}
+                        }
+                    }
+                }
 
                 if last.elapsed() >= Duration::from_millis(20) {
                     last = Instant::now();
