@@ -6,3 +6,4 @@ authors = ["Jack Greenberg <theProgrammerJack@gmail.com>"]
 [dependencies]
 chrono = "0.4.6"
 byteorder = "1.2.7"
+bitflags = "1.0.4"

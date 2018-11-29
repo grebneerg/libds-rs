@@ -1,5 +1,7 @@
 extern crate byteorder;
 extern crate chrono;
+#[macro_use]
+extern crate bitflags;
 
 use byteorder::{ByteOrder, NetworkEndian};
 use chrono::prelude::*;

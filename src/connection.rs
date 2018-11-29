@@ -31,10 +31,12 @@ impl DSConnection {
 
         let t = thread::spawn(move || {
             println!("udp start");
-            let udp = UdpSocket::bind("169.254.65.205:1150").unwrap();
-            println!("udp 2");
+            let udp = UdpSocket::bind("169.254.65.205:1149").unwrap();
+            
             udp.connect(SocketAddr::new(addr.clone(), 1110)).unwrap();
-            udp.set_nonblocking(true).unwrap();
+			println!("udp 2");
+			let udp_recv = UdpSocket::bind("169.254.65.205:1150").unwrap();
+            udp_recv.set_nonblocking(true).unwrap();
             println!("udp started");
 
             udp.send(state.lock().unwrap().udp_packet().as_ref())
@@ -51,16 +53,15 @@ impl DSConnection {
                 }
 
                 let mut udp_buf = vec![0u8; 100];
-                match udp.recv_from(&mut udp_buf) {
-                    Ok((n, f)) => println!("packet received: {:?}", udp_buf),
+                match udp_recv.recv_from(&mut udp_buf) {
+                    Ok((n, f)) => if let Some(packet) = RioUdpPacket::from_bytes(Vec::from(&udp_buf[0..n])) {
+						state.lock().unwrap().update_from_udp(packet);
+					},
                     Err(e) => {
                         if e.kind() != io::ErrorKind::WouldBlock {
                             if let Err(e) = sender_res.send(Err(e)) {
                                 break;
                             }
-                            println!("uh oh");
-                        } else {
-                            println!("got nothing");
                         }
                     }
                 }

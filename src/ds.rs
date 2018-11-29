@@ -32,7 +32,7 @@ impl DriverStationState {
         self.sequence_num += 1;
 
         packet.write_u8(0x01); // comm version
-        packet.write_u8(self.control_byte()); // control byte
+        packet.write_u8(self.control_byte().bits()); // control byte
         packet.write_u8(0); // TODO: actually restart code or rio with this byte.
         packet.write_u8(self.alliance.to_position_u8()); // alliance
 
@@ -64,17 +64,17 @@ impl DriverStationState {
         packet.into_vec()
     }
 
-    fn control_byte(&self) -> u8 {
-        let mut byte: u8 = 0;
+    fn control_byte(&self) -> Control {
+        let mut byte = Control::empty();
         if self.estop {
-            byte |= 0b1000_0000;
+            byte |= Control::ESTOP;
         }
         // fms is never connected, but if it were that would go here
         if self.enabled {
-            byte |= 0b0000_0100;
+            byte |= Control::ENABLED;
         }
 
-        byte |= self.mode as u8;
+        byte |= Control::from_bits(self.mode as u8).unwrap();
 
         byte
     }
@@ -120,4 +120,30 @@ impl Default for DriverStationState {
             request_time: false,
         }
     }
+}
+
+bitflags! {
+	pub struct Control: u8 {
+		const ESTOP = 0b1000_0000;
+        const FMS_CONNECTED = 0b0000_1000;
+        const ENABLED = 0b0000_0100;
+
+		const TELEOP = 0b00;
+        const TEST = 0b01;
+        const AUTO = 0b10;
+	}
+}
+
+impl Control {
+	pub fn robot_mode(&self) -> Option<RobotMode> {
+		return if self.contains(Control::AUTO) {
+			Some(RobotMode::Auto)
+		} else if self.contains(Control::TELEOP) {
+			Some(RobotMode::Teleop)
+		} else if self.contains(Control::TEST) {
+			Some(RobotMode::Test)
+		} else {
+			None
+		}
+	}
 }

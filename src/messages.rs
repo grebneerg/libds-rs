@@ -3,27 +3,15 @@ use std::convert::From;
 use packet::PacketReader;
 use states::RobotMode;
 
-pub struct Trace {
-    robot_code: bool,
-    is_roborio: bool,
-    // these modes don't seem to quite line up with what we send
-    test_mode: bool,
-    auto_mode: bool,
-    teleop_code: bool,
-    disabled: bool,
-}
-
-impl From<u8> for Trace {
-    fn from(byte: u8) -> Self {
-        Trace {
-            robot_code: byte & 0b0010_0000 != 0,
-            is_roborio: byte & 0b0001_0000 != 0,
-            test_mode: byte & 0b0000_1000 != 0,
-            auto_mode: byte & 0b0000_0100 != 0,
-            teleop_code: byte & 0b0000_0010 != 0,
-            disabled: byte & 0b0000_0001 != 0,
-        }
-    }
+bitflags! {
+	pub struct Trace: u8 {
+		const ROBOT_CODE = 0b0010_0000;
+		const IS_ROBORIO = 0b0001_0000;
+		const TEST_MODE = 0b0000_1000;
+		const AUTO_MODE = 0b0000_0100;
+		const TELEOP_CODE = 0b0000_0010;
+		const DISABLED = 0b0000_0001;
+	}
 }
 
 pub struct Status {
@@ -66,7 +54,7 @@ impl RioUdpPacket {
                 sequence_num: packet.next_u16().unwrap(),
                 comm_version: packet.next_u8().unwrap(),
                 status: packet.next_u8().unwrap().into(),
-                trace: packet.next_u8().unwrap().into(),
+                trace: Trace::from_bits(packet.next_u8().unwrap()).unwrap(),
                 battery_voltage: f32::from(packet.next_u8().unwrap())
                     + f32::from(packet.next_u8().unwrap()) / 256.0,
                 request_date: packet.next_u8().unwrap() == 0x01,
