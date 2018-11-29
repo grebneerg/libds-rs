@@ -14,24 +14,31 @@ bitflags! {
 	}
 }
 
-pub struct Status {
-    e_stop: bool,
-    brownout: bool,
-    code_initializing: bool,
-    enabled: bool,
-    mode: Option<RobotMode>,
+bitflags! {
+	pub struct Status: u8 {
+		const ESTOP = 0b1000_0000;
+		const BROWNOUT = 0b0001_0000;
+		const CODE_INITIALIZING = 0b0000_1000;
+		const ENABLED = 0b0000_0100;
+
+		const TELEOP = 0b00;
+        const TEST = 0b01;
+        const AUTO = 0b10;
+	}
 }
 
-impl From<u8> for Status {
-    fn from(byte: u8) -> Self {
-        Status {
-            e_stop: byte & 0b1000_0000 != 0,
-            brownout: byte & 0b0001_0000 != 0,
-            code_initializing: byte & 0b0000_1000 != 0,
-            enabled: byte & 0b0000_0100 != 0,
-            mode: RobotMode::from(byte | 0b0000_0011),
-        }
-    }
+impl Status {
+	pub fn robot_mode(&self) -> Option<RobotMode> {
+		return if self.contains(Status::AUTO) {
+			Some(RobotMode::Auto)
+		} else if self.contains(Status::TELEOP) {
+			Some(RobotMode::Teleop)
+		} else if self.contains(Status::TEST) {
+			Some(RobotMode::Test)
+		} else {
+			None
+		}
+	}
 }
 
 pub struct RioUdpPacket {
@@ -53,7 +60,7 @@ impl RioUdpPacket {
             Some(RioUdpPacket {
                 sequence_num: packet.next_u16().unwrap(),
                 comm_version: packet.next_u8().unwrap(),
-                status: packet.next_u8().unwrap().into(),
+                status: Status::from_bits(packet.next_u8().unwrap()).unwrap(),
                 trace: Trace::from_bits(packet.next_u8().unwrap()).unwrap(),
                 battery_voltage: f32::from(packet.next_u8().unwrap())
                     + f32::from(packet.next_u8().unwrap()) / 256.0,

@@ -33,7 +33,7 @@ impl DriverStationState {
 
         packet.write_u8(0x01); // comm version
         packet.write_u8(self.control_byte().bits()); // control byte
-        packet.write_u8(0); // TODO: actually restart code or rio with this byte.
+        packet.write_u8(Request::empty().bits()); // TODO: actually restart code or rio with this byte.
         packet.write_u8(self.alliance.to_position_u8()); // alliance
 
         // joystick tags
@@ -145,5 +145,12 @@ impl Control {
 		} else {
 			None
 		}
+	}
+}
+
+bitflags! {
+	pub struct Request: u8 {
+		const REBOOT_ROBORIO = 0b1000;
+		const RESTART_ROBOT_CODE = 0b0100;
 	}
 }
