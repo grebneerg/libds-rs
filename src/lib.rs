@@ -28,6 +28,8 @@ use messages::*;
 use packet::PacketWriter;
 use states::{Alliance, RobotMode};
 
+use messages::ds::tcp::*;
+
 pub struct DriverStation {
     state: Arc<Mutex<DriverStationState>>,
     connection: Option<DSConnection>,
@@ -72,6 +74,9 @@ impl DriverStation {
     }
 
     pub fn set_game_data(&self, data: String) {
-        self.state.lock().unwrap().game_data = data;
+        self.state.lock().unwrap().game_data = data.clone();
+        if let Some(ref conn) = self.connection {
+            conn.send_tcp(TcpTag::GameData(GameData::new(data)));
+        }
     }
 }

@@ -41,6 +41,7 @@ impl Alliance {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum MatchType {
     None = 0,
     Practice = 1,

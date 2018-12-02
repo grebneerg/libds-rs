@@ -1,7 +1,15 @@
 use packet::PacketWriter;
 
+pub enum AxisType {
+    X = 0,
+    Y = 1,
+    Z = 2,
+    Twist = 3,
+    Throttle = 4,
+}
+
 #[derive(Clone)]
-enum JoystickType {
+pub enum JoystickType {
     Unknown = -1,
 }
 

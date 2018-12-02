@@ -1,5 +1,5 @@
 use std::io;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use byteorder::{ByteOrder, NetworkEndian};
 
 use ds::DriverStationState;
-use messages::rio::*;
+use messages::{ds::tcp::*, rio::*};
 
 pub struct DSConnection {
     thread: JoinHandle<()>,
@@ -46,9 +46,21 @@ impl DSConnection {
             let mut tcp = TcpStream::connect(SocketAddr::new(addr.clone(), 1740)).unwrap();
             tcp.set_nonblocking(true).unwrap();
 
+            tcp.write(
+                GameData::new(state.lock().unwrap().game_data.clone())
+                    .to_packet()
+                    .as_slice(),
+            );
+
             loop {
                 match receiver_signal.try_recv() {
                     Ok(Signal::Disconnect) | Err(mpsc::TryRecvError::Disconnected) => break,
+                    Ok(Signal::Tcp(tag)) => {
+                        match tcp.write(tag.to_packet().as_slice()) {
+                            Ok(n) => {}
+                            Err(e) => {} //TODO
+                        }
+                    }
                     _ => {}
                 }
 
@@ -129,6 +141,10 @@ impl DSConnection {
             Ok(ior) => ior,
         }
     }
+
+    pub fn send_tcp(&self, tag: TcpTag) {
+        self.sender.send(Signal::Tcp(tag)).unwrap();
+    }
 }
 
 impl Drop for DSConnection {
@@ -138,6 +154,6 @@ impl Drop for DSConnection {
 }
 
 pub enum Signal {
-    Tcp,
+    Tcp(TcpTag),
     Disconnect,
 }
