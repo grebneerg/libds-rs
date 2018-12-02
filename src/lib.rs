@@ -10,7 +10,7 @@ use std::default::Default;
 use std::io;
 use std::io::Read;
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex, MutexGuard};
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -19,7 +19,7 @@ mod ds;
 mod joystick;
 mod messages;
 mod packet;
-mod states;
+pub mod states;
 
 use connection::DSConnection;
 use ds::DriverStationState;
@@ -29,7 +29,7 @@ use packet::PacketWriter;
 use states::{Alliance, RobotMode};
 
 pub struct DriverStation {
-    pub state: Arc<Mutex<DriverStationState>>,
+    state: Arc<Mutex<DriverStationState>>,
     connection: Option<DSConnection>,
 }
 
@@ -57,5 +57,21 @@ impl DriverStation {
                 Err(_) => false,
             },
         }
+    }
+
+    pub fn set_enabled(&self, enabled: bool) {
+        self.state.lock().unwrap().enabled = enabled;
+    }
+
+    pub fn set_mode(&self, mode: RobotMode) {
+        self.state.lock().unwrap().mode = mode;
+    }
+
+    pub fn set_alliance(&self, alliance: Alliance) {
+        self.state.lock().unwrap().alliance = alliance;
+    }
+
+    pub fn set_game_data(&self, data: String) {
+        self.state.lock().unwrap().game_data = data;
     }
 }

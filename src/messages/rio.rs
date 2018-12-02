@@ -4,41 +4,43 @@ use packet::PacketReader;
 use states::RobotMode;
 
 bitflags! {
-	pub struct Trace: u8 {
-		const ROBOT_CODE = 0b0010_0000;
-		const IS_ROBORIO = 0b0001_0000;
-		const TEST_MODE = 0b0000_1000;
-		const AUTO_MODE = 0b0000_0100;
-		const TELEOP_CODE = 0b0000_0010;
-		const DISABLED = 0b0000_0001;
-	}
+    pub struct Trace: u8 {
+        const ROBOT_CODE = 0b0010_0000;
+        const IS_ROBORIO = 0b0001_0000;
+        const TEST_MODE = 0b0000_1000;
+
+        // These are just echos.
+        const AUTO_MODE = 0b0000_0100;
+        const TELEOP_MODE = 0b0000_0010;
+        const DISABLED = 0b0000_0001;
+    }
 }
 
 bitflags! {
-	pub struct Status: u8 {
-		const ESTOP = 0b1000_0000;
-		const BROWNOUT = 0b0001_0000;
-		const CODE_INITIALIZING = 0b0000_1000;
-		const ENABLED = 0b0000_0100;
+    pub struct Status: u8 {
+        const ESTOP = 0b1000_0000;
+        const BROWNOUT = 0b0001_0000;
+        const CODE_INITIALIZING = 0b0000_1000;
+        const ENABLED = 0b0000_0100;
 
-		const TELEOP = 0b00;
+        const TELEOP = 0b00;
         const TEST = 0b01;
         const AUTO = 0b10;
-	}
+    }
 }
 
 impl Status {
-	pub fn robot_mode(&self) -> Option<RobotMode> {
-		return if self.contains(Status::AUTO) {
-			Some(RobotMode::Auto)
-		} else if self.contains(Status::TELEOP) {
-			Some(RobotMode::Teleop)
-		} else if self.contains(Status::TEST) {
-			Some(RobotMode::Test)
-		} else {
-			None
-		}
-	}
+    pub fn robot_mode(&self) -> Option<RobotMode> {
+        return if self.contains(Status::AUTO) {
+            Some(RobotMode::Auto)
+        } else if self.contains(Status::TELEOP) {
+            Some(RobotMode::Teleop)
+        } else if self.contains(Status::TEST) {
+            Some(RobotMode::Test)
+        } else {
+            None
+        };
+    }
 }
 
 pub struct RioUdpPacket {

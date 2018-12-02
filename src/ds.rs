@@ -1,5 +1,5 @@
 use joystick::Joystick;
-use messages::*;
+use messages::rio::*;
 use packet::PacketWriter;
 use states::{Alliance, RobotMode};
 
@@ -7,14 +7,15 @@ use chrono::prelude::*;
 
 const TIMEZONE: &'static str = "UTC";
 
+#[derive(Clone)]
 pub struct DriverStationState {
-    joysticks: Vec<Option<Joystick>>,
-    estop: bool,
+    pub joysticks: Vec<Option<Joystick>>,
+    pub estop: bool,
     pub enabled: bool,
-    mode: RobotMode,
-    alliance: Alliance,
-    game_data: String,
-    competition: String,
+    pub mode: RobotMode,
+    pub alliance: Alliance,
+    pub game_data: String,
+    pub competition: String,
     sequence_num: u16,
     request_time: bool,
 }
@@ -123,34 +124,34 @@ impl Default for DriverStationState {
 }
 
 bitflags! {
-	pub struct Control: u8 {
-		const ESTOP = 0b1000_0000;
+    pub struct Control: u8 {
+        const ESTOP = 0b1000_0000;
         const FMS_CONNECTED = 0b0000_1000;
         const ENABLED = 0b0000_0100;
 
-		const TELEOP = 0b00;
+        const TELEOP = 0b00;
         const TEST = 0b01;
         const AUTO = 0b10;
-	}
+    }
 }
 
 impl Control {
-	pub fn robot_mode(&self) -> Option<RobotMode> {
-		return if self.contains(Control::AUTO) {
-			Some(RobotMode::Auto)
-		} else if self.contains(Control::TELEOP) {
-			Some(RobotMode::Teleop)
-		} else if self.contains(Control::TEST) {
-			Some(RobotMode::Test)
-		} else {
-			None
-		}
-	}
+    pub fn robot_mode(&self) -> Option<RobotMode> {
+        return if self.contains(Control::AUTO) {
+            Some(RobotMode::Auto)
+        } else if self.contains(Control::TELEOP) {
+            Some(RobotMode::Teleop)
+        } else if self.contains(Control::TEST) {
+            Some(RobotMode::Test)
+        } else {
+            None
+        };
+    }
 }
 
 bitflags! {
-	pub struct Request: u8 {
-		const REBOOT_ROBORIO = 0b1000;
-		const RESTART_ROBOT_CODE = 0b0100;
-	}
+    pub struct Request: u8 {
+        const REBOOT_ROBORIO = 0b1000;
+        const RESTART_ROBOT_CODE = 0b0100;
+    }
 }

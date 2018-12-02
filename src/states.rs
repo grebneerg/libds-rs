@@ -16,6 +16,7 @@ impl RobotMode {
     }
 }
 
+#[derive(Clone)]
 pub enum Alliance {
     Red(u8),
     Blue(u8),
