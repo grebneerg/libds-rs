@@ -133,63 +133,73 @@ impl RioTcpPacket {
                     let size = packet.len();
                     packet.extract_string(size).unwrap()
                 })),
-                0x04 => if packet.len() != 4 {
-                    None
-                } else {
-                    Some(DisableFaults {
-                        comms: packet.next_u16().unwrap(),
-                        twelve_v: packet.next_u16().unwrap(),
-                    })
-                },
-                0x05 => if packet.len() != 6 {
-                    None
-                } else {
-                    Some(RailFaults {
-                        six_v: packet.next_u16().unwrap(),
-                        five_v: packet.next_u16().unwrap(),
-                        three_point_three_v: packet.next_u16().unwrap(),
-                    })
-                },
-                0x0a => if packet.len() < 5 {
-                    None
-                } else {
-                    None // TODO
-                },
-                0x0b => if packet.len() < 16 {
-                    None
-                } else {
-                    Some(ErrorMessage {
-                        timestamp: packet.next_f32().unwrap(),
-                        sequence_number: packet.next_u16().unwrap(),
-                        print_msg: packet.next_u8().unwrap() == 0x01,
-                        error_code: packet.next_u16().unwrap(),
-                        is_error: packet.next_u8().unwrap() != 0,
-                        details: {
-                            let size = packet.next_u16().unwrap() as usize;
-                            packet.extract_string(size).unwrap()
-                        },
-                        location: {
-                            let size = packet.next_u16().unwrap() as usize;
-                            packet.extract_string(size).unwrap()
-                        },
-                        call_stack: {
-                            let size = packet.next_u16().unwrap() as usize;
-                            packet.extract_string(size).unwrap()
-                        },
-                    })
-                },
-                0x0c => if packet.len() < 6 {
-                    None
-                } else {
-                    Some(StandardOutput {
-                        timestamp: packet.next_f32().unwrap(),
-                        sequence_number: packet.next_u16().unwrap(),
-                        message: {
-                            let size = packet.len();
-                            packet.extract_string(size).unwrap()
-                        },
-                    })
-                },
+                0x04 => {
+                    if packet.len() != 4 {
+                        None
+                    } else {
+                        Some(DisableFaults {
+                            comms: packet.next_u16().unwrap(),
+                            twelve_v: packet.next_u16().unwrap(),
+                        })
+                    }
+                }
+                0x05 => {
+                    if packet.len() != 6 {
+                        None
+                    } else {
+                        Some(RailFaults {
+                            six_v: packet.next_u16().unwrap(),
+                            five_v: packet.next_u16().unwrap(),
+                            three_point_three_v: packet.next_u16().unwrap(),
+                        })
+                    }
+                }
+                0x0a => {
+                    if packet.len() < 5 {
+                        None
+                    } else {
+                        None // TODO
+                    }
+                }
+                0x0b => {
+                    if packet.len() < 16 {
+                        None
+                    } else {
+                        Some(ErrorMessage {
+                            timestamp: packet.next_f32().unwrap(),
+                            sequence_number: packet.next_u16().unwrap(),
+                            print_msg: packet.next_u8().unwrap() == 0x01,
+                            error_code: packet.next_u16().unwrap(),
+                            is_error: packet.next_u8().unwrap() != 0,
+                            details: {
+                                let size = packet.next_u16().unwrap() as usize;
+                                packet.extract_string(size).unwrap()
+                            },
+                            location: {
+                                let size = packet.next_u16().unwrap() as usize;
+                                packet.extract_string(size).unwrap()
+                            },
+                            call_stack: {
+                                let size = packet.next_u16().unwrap() as usize;
+                                packet.extract_string(size).unwrap()
+                            },
+                        })
+                    }
+                }
+                0x0c => {
+                    if packet.len() < 6 {
+                        None
+                    } else {
+                        Some(StandardOutput {
+                            timestamp: packet.next_f32().unwrap(),
+                            sequence_number: packet.next_u16().unwrap(),
+                            message: {
+                                let size = packet.len();
+                                packet.extract_string(size).unwrap()
+                            },
+                        })
+                    }
+                }
                 _ => None,
             }
         }

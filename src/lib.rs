@@ -17,7 +17,7 @@ use std::thread::JoinHandle;
 mod connection;
 mod ds;
 mod joystick;
-mod messages;
+pub mod messages; // change to just re-export
 mod packet;
 pub mod states;
 
@@ -77,6 +77,13 @@ impl DriverStation {
         self.state.lock().unwrap().game_data = data.clone();
         if let Some(ref conn) = self.connection {
             conn.send_tcp(TcpTag::GameData(GameData::new(data)));
+        }
+    }
+
+    pub fn set_match_info(&self, info: MatchInfo) {
+        self.state.lock().unwrap().match_info = info.clone();
+        if let Some(ref conn) = self.connection {
+            conn.send_tcp(TcpTag::MatchInfo(info));
         }
     }
 }

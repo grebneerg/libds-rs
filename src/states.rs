@@ -1,3 +1,4 @@
+#[repr(u8)]
 #[derive(Copy, Clone)]
 pub enum RobotMode {
     Teleop = 0,
@@ -41,6 +42,7 @@ impl Alliance {
     }
 }
 
+#[repr(u8)]
 #[derive(Copy, Clone)]
 pub enum MatchType {
     None = 0,

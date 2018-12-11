@@ -1,7 +1,7 @@
 use joystick::Joystick;
-use messages::rio::*;
+use messages::{ds::tcp::MatchInfo, rio::*};
 use packet::PacketWriter;
-use states::{Alliance, RobotMode};
+use states::{Alliance, MatchType, RobotMode};
 
 use chrono::prelude::*;
 
@@ -15,7 +15,7 @@ pub struct DriverStationState {
     pub mode: RobotMode,
     pub alliance: Alliance,
     pub game_data: String,
-    pub competition: String,
+    pub match_info: MatchInfo,
     sequence_num: u16,
     request_time: bool,
 }
@@ -116,7 +116,10 @@ impl Default for DriverStationState {
             mode: RobotMode::Teleop,
             alliance: Alliance::Red(1),
             game_data: String::new(),
-            competition: String::from("unknown"),
+            match_info: MatchInfo {
+                competition: String::from("unknown"),
+                match_type: MatchType::None,
+            },
             sequence_num: 0,
             request_time: false,
         }

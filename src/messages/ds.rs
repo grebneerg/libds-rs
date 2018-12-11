@@ -2,6 +2,8 @@ pub mod tcp {
     use joystick::{AxisType, JoystickType};
     use states::MatchType;
 
+	use byteorder::{WriteBytesExt, NetworkEndian};
+
     pub trait Tag {
         fn id(&self) -> u8;
 
@@ -11,10 +13,13 @@ pub mod tcp {
             let mut buf = Vec::new();
             buf.push(self.id());
             buf.extend(self.as_bytes());
+			
             let len = buf.len();
-            buf.insert(0, len as u8);
+			let mut packet = Vec::new();
+			packet.write_u16::<NetworkEndian>(len as u16);
+            packet.extend(buf);
 
-            buf
+            packet
         }
     }
 
@@ -45,9 +50,10 @@ pub mod tcp {
         pov_count: u8,
     }
 
+    #[derive(Clone)]
     pub struct MatchInfo {
-        competition: String,
-        match_type: MatchType,
+        pub competition: String,
+        pub match_type: MatchType,
     }
 
     impl Tag for MatchInfo {

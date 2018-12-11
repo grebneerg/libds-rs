@@ -46,18 +46,24 @@ impl DSConnection {
             let mut tcp = TcpStream::connect(SocketAddr::new(addr.clone(), 1740)).unwrap();
             tcp.set_nonblocking(true).unwrap();
 
+            println!(
+                "{:?}",
+                GameData::new(state.lock().unwrap().game_data.clone()).to_packet()
+            );
             tcp.write(
                 GameData::new(state.lock().unwrap().game_data.clone())
                     .to_packet()
                     .as_slice(),
-            );
+            )
+            .unwrap();
+			tcp.write(state.lock().unwrap().match_info.clone().to_packet().as_slice()).unwrap();
 
             loop {
                 match receiver_signal.try_recv() {
                     Ok(Signal::Disconnect) | Err(mpsc::TryRecvError::Disconnected) => break,
                     Ok(Signal::Tcp(tag)) => {
                         match tcp.write(tag.to_packet().as_slice()) {
-                            Ok(n) => {}
+                            Ok(n) => println!("wrote"),
                             Err(e) => {} //TODO
                         }
                     }
@@ -84,11 +90,14 @@ impl DSConnection {
                 match tcp.read_exact(&mut size_buf) {
                     Ok(_) => {
                         let size = NetworkEndian::read_u16(&size_buf);
+                        println!("tcp size: {}", size);
                         let mut buf = vec![0u8; size as usize];
                         match tcp.read_exact(&mut buf) {
-                            Ok(_) => if let Some(packet) = RioTcpPacket::from_bytes(buf) {
-                                state.lock().unwrap().update_from_tcp(packet);
-                            },
+                            Ok(_) => {
+                                if let Some(packet) = RioTcpPacket::from_bytes(buf) {
+                                    state.lock().unwrap().update_from_tcp(packet);
+                                }
+                            }
                             Err(e) => {
                                 if e.kind() != io::ErrorKind::WouldBlock {
                                     if let Err(e) = sender_res.send(Err(e)) {
@@ -109,8 +118,9 @@ impl DSConnection {
 
                 if last.elapsed() >= Duration::from_millis(20) {
                     last = Instant::now();
-                    match udp.send(state.lock().unwrap().udp_packet().as_ref()) {
-                        Ok(s) => {}
+					let packet = state.lock().unwrap().udp_packet();
+                    match udp.send(packet.as_ref()) {
+                        Ok(s) => println!("udp sent {:?}", packet),
                         Err(e) => {
                             if e.kind() != io::ErrorKind::WouldBlock {
                                 if let Err(e) = sender_res.send(Err(e)) {
