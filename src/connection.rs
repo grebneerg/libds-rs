@@ -31,11 +31,11 @@ impl DSConnection {
 
         let t = thread::spawn(move || {
             println!("udp start");
-            let udp = UdpSocket::bind("169.254.65.205:1149").unwrap();
+            let udp = UdpSocket::bind("0.0.0.0:1149").unwrap();
 
             udp.connect(SocketAddr::new(addr.clone(), 1110)).unwrap();
             println!("udp 2");
-            let udp_recv = UdpSocket::bind("169.254.65.205:1150").unwrap();
+            let udp_recv = UdpSocket::bind("0.0.0.0:1150").unwrap();
             udp_recv.set_nonblocking(true).unwrap();
             println!("udp started");
 
@@ -63,7 +63,7 @@ impl DSConnection {
                     Ok(Signal::Disconnect) | Err(mpsc::TryRecvError::Disconnected) => break,
                     Ok(Signal::Tcp(tag)) => {
                         match tcp.write(tag.to_packet().as_slice()) {
-                            Ok(n) => println!("wrote"),
+                            Ok(n) => println!("wrote {}", n),
                             Err(e) => {} //TODO
                         }
                     }
@@ -120,7 +120,7 @@ impl DSConnection {
                     last = Instant::now();
 					let packet = state.lock().unwrap().udp_packet();
                     match udp.send(packet.as_ref()) {
-                        Ok(s) => println!("udp sent {:?}", packet),
+                        Ok(s) => {}, // println!("udp sent {:?}", packet),
                         Err(e) => {
                             if e.kind() != io::ErrorKind::WouldBlock {
                                 if let Err(e) = sender_res.send(Err(e)) {
