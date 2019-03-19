@@ -2,7 +2,7 @@ pub mod tcp {
     use crate::joystick::{AxisType, JoystickType};
     use crate::states::MatchType;
 
-	use byteorder::{WriteBytesExt, NetworkEndian};
+    use byteorder::{NetworkEndian, WriteBytesExt};
 
     pub trait Tag {
         fn id(&self) -> u8;
@@ -13,10 +13,10 @@ pub mod tcp {
             let mut buf = Vec::new();
             buf.push(self.id());
             buf.extend(self.as_bytes());
-			
+
             let len = buf.len();
-			let mut packet = Vec::new();
-			packet.write_u16::<NetworkEndian>(len as u16);
+            let mut packet = Vec::new();
+            packet.write_u16::<NetworkEndian>(len as u16);
             packet.extend(buf);
 
             packet

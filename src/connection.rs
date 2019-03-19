@@ -56,7 +56,16 @@ impl DSConnection {
                     .as_slice(),
             )
             .unwrap();
-			tcp.write(state.lock().unwrap().match_info.clone().to_packet().as_slice()).unwrap();
+            tcp.write(
+                state
+                    .lock()
+                    .unwrap()
+                    .match_info
+                    .clone()
+                    .to_packet()
+                    .as_slice(),
+            )
+            .unwrap();
 
             loop {
                 match receiver_signal.try_recv() {
@@ -118,9 +127,9 @@ impl DSConnection {
 
                 if last.elapsed() >= Duration::from_millis(20) {
                     last = Instant::now();
-					let packet = state.lock().unwrap().udp_packet();
+                    let packet = state.lock().unwrap().udp_packet();
                     match udp.send(packet.as_ref()) {
-                        Ok(s) => {}, // println!("udp sent {:?}", packet),
+                        Ok(s) => {} // println!("udp sent {:?}", packet),
                         Err(e) => {
                             if e.kind() != io::ErrorKind::WouldBlock {
                                 if let Err(e) = sender_res.send(Err(e)) {
