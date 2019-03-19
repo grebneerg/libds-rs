@@ -1,4 +1,4 @@
-use packet::PacketWriter;
+use crate::packet::PacketWriter;
 
 pub enum AxisType {
     X = 0,

@@ -1,6 +1,6 @@
 pub mod tcp {
-    use joystick::{AxisType, JoystickType};
-    use states::MatchType;
+    use crate::joystick::{AxisType, JoystickType};
+    use crate::states::MatchType;
 
 	use byteorder::{WriteBytesExt, NetworkEndian};
 

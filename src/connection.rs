@@ -8,8 +8,8 @@ use std::time::{Duration, Instant};
 
 use byteorder::{ByteOrder, NetworkEndian};
 
-use ds::DriverStationState;
-use messages::{ds::tcp::*, rio::*};
+use crate::ds::DriverStationState;
+use crate::messages::{ds::tcp::*, rio::*};
 
 pub struct DSConnection {
     thread: JoinHandle<()>,
@@ -166,4 +166,58 @@ impl Drop for DSConnection {
 pub enum Signal {
     Tcp(TcpTag),
     Disconnect,
+}
+
+struct TcpConnection{
+    stream: TcpStream,
+    queue: Vec<u8>,
+    received: Vec<RioTcpPacket>,
+    next_tag_len: Option<u16>,
+}
+
+impl TcpConnection {
+    fn new(addr: SocketAddr) -> io::Result<Self> {
+        let stream = TcpStream::connect(addr)?;
+        stream.set_nonblocking(true)?;
+        Ok(Self {
+            stream,
+            queue: Vec::new(),
+            received: Vec::new(),
+            next_tag_len: None,
+        })
+    }
+
+    fn send_tag(&mut self, tag: TcpTag) {
+        self.queue.append(&mut tag.to_packet());
+    }
+
+    fn tick(&mut self) {
+        if !self.queue.is_empty() {
+            match self.stream.write(&self.queue) {
+                Ok(len) => self.queue = self.queue.split_off(len),
+                Err(e) => panic!("aah"),
+            }
+        }
+
+        if let Some(ref len) = self.next_tag_len {
+            let mut buf = vec![0u8; usize::from(*len)];
+            match self.stream.read_exact(&mut buf) {
+                Ok(_) => {
+                    self.next_tag_len = None;
+                    if let Some(tag) = RioTcpPacket::from_bytes(buf) {
+                        self.received.push(tag)
+                    }
+                },
+                Err(e) => {},
+            }
+        } else {
+            let mut buf = vec![0u8; 2];
+            match self.stream.read_exact(&mut buf) {
+                Ok(_) => {
+                    self.next_tag_len = Some(NetworkEndian::read_u16(&buf));
+                },
+                Err(e) => {},
+            }
+        }
+    }
 }

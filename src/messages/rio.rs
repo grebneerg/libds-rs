@@ -1,7 +1,7 @@
 use std::convert::From;
 
-use packet::PacketReader;
-use states::RobotMode;
+use crate::packet::PacketReader;
+use crate::states::RobotMode;
 
 bitflags! {
     pub struct Trace: u8 {
